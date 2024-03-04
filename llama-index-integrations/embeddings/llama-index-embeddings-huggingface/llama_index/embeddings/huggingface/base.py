@@ -51,6 +51,7 @@ class HuggingFaceEmbedding(BaseEmbedding):
     _model: Any = PrivateAttr()
     _tokenizer: Any = PrivateAttr()
     _device: str = PrivateAttr()
+    _first_run: Any = PrivateAttr()
 
     def __init__(
         self,
@@ -113,6 +114,7 @@ class HuggingFaceEmbedding(BaseEmbedding):
                     f"Pooling {pooling} unsupported, please pick one in"
                     f" {[p.value for p in Pooling]}."
                 ) from exc
+        self._first_run = True
 
         super().__init__(
             embed_batch_size=embed_batch_size,
@@ -157,6 +159,10 @@ class HuggingFaceEmbedding(BaseEmbedding):
         encoded_input = {
             key: val.to(self._device) for key, val in encoded_input.items()
         }
+        if self._first_run:
+            import torch
+            self._first_run = False
+            self._model = torch.jit.freeze(torch.jit.trace(self._model, **encoded_input))
 
         model_output = self._model(**encoded_input)
 
